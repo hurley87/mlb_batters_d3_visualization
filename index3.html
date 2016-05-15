@@ -1,0 +1,399 @@
+
+<!DOCTYPE html>
+<meta charset="utf-8"> 
+<style> /* set the CSS */
+	body {
+	  font: 11px sans-serif;
+	}
+
+	.axis path,
+	.axis line {
+	  fill: none;
+	  stroke: #000;
+	  shape-rendering: crispEdges;
+	}
+
+	.dot {
+	  stroke: #000;
+	}
+
+	.path {
+		-webkit-box-shadow: 2px 2px 5px 0px rgba(0,0,0,0.75);
+		-moz-box-shadow: 2px 2px 5px 0px rgba(0,0,0,0.75);
+		box-shadow: 2px 2px 5px 0px rgba(0,0,0,0.75);
+	}
+
+	.tooltip {
+	  position: absolute;
+	  padding: 10px;
+	  padding-top: 0px;
+	  pointer-events: none;
+	  z-index: 9999;
+	  background-color: #fff;
+	}
+</style>
+<body>
+	<script src="http://d3js.org/d3.v3.min.js"></script>
+	<script type="text/javascript">
+
+		// define layout
+		var margin = {top: 60, right: 20, bottom: 30, left: 50}, 
+			width = 1000 - margin.left - margin.right, 
+			height = 600;
+
+		var rightHandedColor = '#5188BF';
+		var leftHandedColor = '#56D0B3';
+		var bothHandedColor = '#e74c3c';
+
+
+		// add svg element to page
+		var svg = d3.select('body')
+			.append('svg')
+				.attr("width", width + margin.left + margin.right)
+				.attr('height', width + margin.bottom + margin.top)
+			.append('g')
+				.attr('transform', "translate(" + margin.left + "," + margin.top + ")");
+
+		// add the tooltip area to the webpage
+		var tooltip = d3.select("body").append("div")
+		    .attr("class", "tooltip")
+		    .style("opacity", 0);
+
+		// hide toolbar when needed
+		function hideToolbar() {
+          tooltip.transition()
+               .duration(500)
+               .style("opacity", 0);
+		}
+
+		
+		// set scale for x
+		var xValue = function(d){ return d.avg; },
+			xScale = d3.scale.linear().range([0, width]),
+			xMap = function(d){ return xScale(xValue(d)); },
+			xAxis = d3.svg.axis().scale(xScale).orient('bottom');
+
+		// set scale for Y
+		var yValue = function(d){ return d.HR; },
+			yScale = d3.scale.linear().range([height, 0]),
+			yMap = function(d){ return yScale(yValue(d))},
+			yAxis = d3.svg.axis().scale(yScale).orient('left');
+
+
+		// get the data
+		d3.csv('baseball_data.csv', function(error, data) {
+			// set strings to integers 
+			data = data.filter(function(d) {
+				// exclude those players whose avg or HR is 0!
+				if(parseFloat(d.avg) == 0 || parseInt(d.HR) == 0) {
+					return false;
+				}
+				d.HR = +d.HR;
+				d.avg = parseFloat(d.avg) * 1000;
+				return true;
+			});
+
+			// set domain of x and  y
+			xScale.domain([d3.min(data, xValue), d3.max(data, xValue) + 2]);
+			yScale.domain([1, d3.max(data, yValue)]);
+
+			// append x-axis
+			svg.append("g")
+			  .attr("class", "x axis")
+			  .attr("transform", "translate(0," + height + ")")
+			  .call(xAxis)
+			.append("text")
+			  .attr("class", "label")
+			  .attr("x", width)
+			  .attr("y", -6)
+			  .style("text-anchor", "end")
+			  .text("Average");
+
+			// append y-axis
+			svg.append("g")
+			  .attr("class", "y axis")
+			  .call(yAxis)
+			.append("text")
+			  .attr("class", "label")
+			  .attr("transform", "rotate(-90)")
+			  .attr("y", 6)
+			  .attr("dy", ".71em")
+			  .style("text-anchor", "end")
+			  .text("Home Runs");
+
+			// append title
+			svg.append('text')
+				.attr('x', (width/2))
+				.attr('y', -20)
+				.attr('text-anchor', 'middle')
+				.style('font-size', '16px')
+				.text('Left Handed versus Right Handed Batters in the MLB')
+
+			// appends dots to svg
+			svg.selectAll(".dot")
+		    	.data(data)
+		     .enter().append("circle")
+		      .attr("class", function(d,i) {
+		      	// was the batter left, right or both
+		        var handedness = d.handedness;
+		        switch(handedness) {
+		        	case 'L':
+		        		return "dot left-handed";
+		        		break;
+		        	case 'R':
+		        		return "dot right-handed";
+		        		break;
+		        	default:
+		        		return "dot both-handed";
+		        }
+		      })
+		      .attr("r", 5.5)
+		      .attr("cx", xMap)
+		      .attr("cy", yMap)
+		      .style('fill', function(d,i) {
+		      	// was the batter left, right or both
+		        var handedness = d.handedness;
+		        switch(handedness) {
+		        	case 'L':
+		        		return leftHandedColor;
+		        		break;
+		        	case 'R':
+		        		return rightHandedColor;
+		        		break;
+		        	default:
+		        		return bothHandedColor;
+		        }
+		      })
+		      // show player stats when a user mouse's over player's dot
+		      .on('mouseover', function(d) {
+		      	  var handedness = d.handedness;
+		          tooltip.transition()
+		               .duration(200)
+		               .style("opacity", 1);
+		          tooltip.html("<h3>"+d.name+"</h3>" + "Averge: ." + d.avg 
+			        + "<br/> Home runs: " + d.HR 
+			        + "<br/> Height: " + d.height
+			        + "<br/> Weight: " + d.weight )
+		               .style("left", (d3.event.pageX + 5) + "px")
+		               .style("top", (d3.event.pageY - 28) + "px")
+		               .style('border', function(d) {
+					        switch(handedness) {
+					        	case 'L':
+					        		return '3px solid ' + leftHandedColor;
+					        		break;
+					        	case 'R':
+					        		return '3px solid ' + rightHandedColor;
+					        		break;
+					        	default:
+					        		return '3px solid ' + bothHandedColor;
+					        }
+		               });
+		      })
+		      .on("mouseout", function(d) {
+		        hideToolbar();
+		      });
+
+
+		    // find average HRs for each type of handedness
+			var battingAvgByHandedness = d3.nest()
+				.key(function(d) { return d.handedness; })
+				.rollup(function(v){ return d3.mean(v, function(d){ return d.avg }); })
+				.entries(data);
+
+			function handedAvgLine(color, index, data) {
+				var handedAvg = d3.svg.line()
+				  .x(function(d,i) {
+				    return xScale(battingAvgByHandedness[index].values);
+				  })
+				  .y(function(d,i) {
+				  	if(i <= 550) {
+				  		return yScale(i);
+				  	} else {
+				  		return yScale(550)
+				  	}
+				  });
+
+				svg.append('path')
+					.attr('d', handedAvg(data))
+					.attr('stroke', color)
+					.attr('class', function(d,i) {
+				        switch(index) {
+				        	case 1:
+				        		return "left-handed";
+				        		break;
+				        	case 0:
+				        		return "right-handed";
+				        		break;
+				        	default:
+				        		return "both-handed";
+				        }
+				      })
+	  				.attr('stroke-width', 5)
+	  				.attr('fill', 'none')
+					.on('mouseover', function(d) {
+					  tooltip.transition()
+					       .duration(200)
+					       .style("opacity", 1);
+					  tooltip.html("<h3>Averge batting average: <strong>" + battingAvgByHandedness[index].values.toFixed(2) + "</strong></h3>")
+					       .style("left", (d3.event.pageX + 5) + "px")
+					       .style("top", (d3.event.pageY - 28) + "px")
+					       .style('border', '3px solid ' + color);
+					})
+					.on("mouseout", function(d) {
+					  hideToolbar();
+					});
+			}
+
+			// line that indicated average of right handed batters
+			handedAvgLine(rightHandedColor, 0, data);
+			// line that indicated average of left handed batters
+			handedAvgLine(leftHandedColor, 1, data);
+			// line that indicated average of batters that hit both ways
+			handedAvgLine(bothHandedColor, 2, data);
+
+
+  			// find average HRs for each type of handedness
+  			var homerunAvgByHandedness = d3.nest()
+				.key(function(d) { return d.handedness; })
+				.rollup(function(v){ return d3.mean(v, function(d){ return d.HR }); })
+				.entries(data)
+
+
+			function handedHRLine(color, index, data) {
+				var HRs = d3.svg.line()
+				  .x(function(d,i) {
+				    return xScale(i);
+				  })
+				  .y(function(d,i) {
+				  	return yScale(homerunAvgByHandedness[index].values);
+				  });
+
+				svg.append('path')
+					.attr('d', HRs(data))
+					.attr('stroke', color)
+					.attr('class', function(d,i) {
+				        switch(index) {
+				        	case 1:
+				        		return "left-handed";
+				        		break;
+				        	case 0:
+				        		return "right-handed";
+				        		break;
+				        	default:
+				        		return "both-handed";
+				        }
+				      })
+	  				.attr('stroke-width', 5)
+	  				.attr('fill', 'none')
+					.on('mouseover', function(d) {
+					  tooltip.transition()
+					       .duration(200)
+					       .style("opacity", 1);
+					  tooltip.html("<h3>Average homeruns: <strong>" + homerunAvgByHandedness[index].values.toFixed(2) + "</strong></h3>")
+					       .style("left", (d3.event.pageX + 5) + "px")
+					       .style("top", (d3.event.pageY - 28) + "px")
+					       .style('border', '3px solid ' + color);
+					})
+					.on("mouseout", function(d) {
+					  hideToolbar();
+					});
+			}
+
+			// average number of homeruns for right handed batters
+  			handedHRLine(rightHandedColor, 0, data);
+  			// average number of homeruns for left handed batters
+  			handedHRLine(leftHandedColor, 1, data);
+  			// average number of homeruns for batters that hit both ways
+  			handedHRLine(bothHandedColor, 2, data);
+
+			// append legend
+			var legend = svg.selectAll(".legend")
+			  .data(["Right Handed", 'Left Handed', 'Both'])
+			.enter().append("g")
+			  .attr("class", "legend")
+			  .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+
+			// append legend colored rectangles
+			legend.append("rect")
+			  .attr("x", width - 18)
+			  .attr("width", 18)
+			  .attr("height", 18)
+			  .style('cursor', 'pointer')
+			  .style("fill", function(d) {
+			  	switch(d) {
+			  		case 'Right Handed':
+			  			return rightHandedColor;
+			  			break;
+			  		case 'Left Handed':
+			  			return leftHandedColor;
+			  			break;
+			  		default: 
+			  			return bothHandedColor;
+			  	}
+			  })
+			  .on('click', function(d) {
+			  	switch(d) {
+			  		case 'Right Handed':
+			  			show('.right-handed');
+			  			break;
+			  		case 'Left Handed':
+			  			show('.left-handed');
+			  			break;
+			  		default: 
+			  			show('.both-handed');
+			  	}
+			  })
+
+			function show(type) {
+				hideAll();
+				d3.selectAll(type).style('display', 'block');
+			}
+
+			function hideAll() {
+				d3.selectAll('.left-handed').style('display', 'none');
+				d3.selectAll('.right-handed').style('display', 'none');
+				d3.selectAll('.both-handed').style('display', 'none');
+			}
+
+			// append legend text
+			legend.append("text")
+			  .attr("x", width - 24)
+			  .attr("y", 9)
+			  .attr("dy", ".35em")
+			  .style("text-anchor", "end")
+			  .text(function(d) { return d;})
+
+		});
+
+		d3.selectAll('.left-handed').style('display', 'none');
+		d3.selectAll('.right-handed').style('display', 'none');
+		d3.selectAll('.both-handed').style('display', 'block');
+	
+		var type = '.left-handed';
+		setInterval(function(){ 
+			function show(type) {
+				hideAll();
+				d3.selectAll(type).style('display', 'block');
+			}
+
+			function hideAll() {
+				d3.selectAll('.left-handed').style('display', 'none');
+				d3.selectAll('.right-handed').style('display', 'none');
+				d3.selectAll('.both-handed').style('display', 'none');
+			}
+			switch(type) {
+				case '.left-handed':
+					show(type);
+					type = '.right-handed';
+					break;
+				case '.right-handed':
+					show(type);
+					type = '.both-handed';
+					break;
+				default:
+					show(type);
+					type = '.left-handed';
+			}
+		}, 3000);
+	</script>
+</body>
