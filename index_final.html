@@ -95,6 +95,7 @@
 			data[2][1] = [];
 			// get the data
 			d3.csv('baseball_data.csv', function(error, csv) {
+				console.log(csv)
 
 				csv.forEach(function(player){
 					
@@ -213,10 +214,7 @@
 				    .attr("ry", '2px')
 				    .style('cursor', 'pointer')
 				    .on('click', function() {
-				    	d3.select("svg").remove();
-				    	analysis.title = 'Homeruns'
-				    	analysis.type = 'hr'
-				    	renderChart();
+				    	switchType();
 				    })
 
 				var text = svg.append("text")      // button text
@@ -230,20 +228,22 @@
 				    .text('switch')
 				    .style('cursor', 'pointer')
 				    .on('click', function() {
-					    	if(analysis.type == 'avg') {
-					    	d3.select("svg").remove();
-					    	analysis.title = 'Homeruns'
-					    	analysis.type = 'hr'
-					    	renderChart();
-				    	} else {
-					    	d3.select("svg").remove();
-					    	analysis.title = 'Batting Average'
-					    	analysis.type = 'avg'
-					    	renderChart();
-				    	}
-				    })
+				    	switchType();
+				    })	
 
-
+				function switchType() {
+				    if(analysis.type == 'avg') {
+				    	d3.select("svg").remove();
+				    	analysis.title = 'Homeruns'
+				    	analysis.type = 'hr'
+				    	renderChart();
+			    	} else {
+				    	d3.select("svg").remove();
+				    	analysis.title = 'Batting Average'
+				    	analysis.type = 'avg'
+				    	renderChart();
+			    	}
+				}
 
 			});	
 		}
