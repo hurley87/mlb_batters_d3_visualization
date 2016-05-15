@@ -3,203 +3,184 @@
 <meta charset="utf-8"> 
 <style> /* set the CSS */
 	body {
-	  font: 11px sans-serif;
+	  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
 	}
 
+	.box {
+	  font: 10px sans-serif;
+	}
+
+	.box line,
+	.box rect,
+	.box circle {
+	  fill: steelblue;
+	  stroke: #000;
+	  stroke-width: 1px;
+	}
+
+	.box .center {
+	  stroke-dasharray: 3,3;
+	}
+
+	.box .outlier {
+	  display: none;
+	}
+
+	.axis {
+	  font: 12px sans-serif;
+	}
+	 
 	.axis path,
 	.axis line {
 	  fill: none;
 	  stroke: #000;
 	  shape-rendering: crispEdges;
 	}
-
-	.dot {
+	 
+	.x.axis path { 
+	  fill: none;
 	  stroke: #000;
-	}
-
-	.path {
-		-webkit-box-shadow: 2px 2px 5px 0px rgba(0,0,0,0.75);
-		-moz-box-shadow: 2px 2px 5px 0px rgba(0,0,0,0.75);
-		box-shadow: 2px 2px 5px 0px rgba(0,0,0,0.75);
-	}
-
-	.tooltip {
-	  position: absolute;
-	  padding: 10px;
-	  padding-top: 0px;
-	  pointer-events: none;
-	  z-index: 9999;
-	  background-color: #fff;
+	  shape-rendering: crispEdges;
 	}
 </style>
 <body>
 	<script src="http://d3js.org/d3.v3.min.js"></script>
+	<script src="./box.js"></script>
 	<script type="text/javascript">
 
-		// define layout
-		var margin = {top: 60, right: 20, bottom: 30, left: 50}, 
-			width = 1000 - margin.left - margin.right, 
-			height = 600;
-
-		var rightHandedColor = '#5188BF';
-		var leftHandedColor = '#56D0B3';
-		var bothHandedColor = '#e74c3c';
-
-
-		// add svg element to page
-		var svg = d3.select('body')
-			.append('svg')
-				.attr("width", width + margin.left + margin.right)
-				.attr('height', width + margin.bottom + margin.top)
-			.append('g')
-				.attr('transform', "translate(" + margin.left + "," + margin.top + ")");
-
-		// add the tooltip area to the webpage
-		var tooltip = d3.select("body").append("div")
-		    .attr("class", "tooltip")
-		    .style("opacity", 0);
-
-		// hide toolbar when needed
-		function hideToolbar() {
-          tooltip.transition()
-               .duration(500)
-               .style("opacity", 0);
+		// Returns a function to compute the interquartile range.
+		function iqr(k) {
+		  return function(d, i) {
+		    var q1 = d.quartiles[0],
+		        q3 = d.quartiles[2],
+		        iqr = (q3 - q1) * k,
+		        i = -1,
+		        j = d.length;
+		    while (d[++i] < q1 - iqr);
+		    while (d[--j] > q3 + iqr);
+		    return [i, j];
+		  };
 		}
 
-		
-		// set scale for x
-		var xValue = function(d){ return d.avg; },
-			xScale = d3.scale.linear().range([0, width]),
-			xMap = function(d){ return xScale(xValue(d)); },
-			xAxis = d3.svg.axis().scale(xScale).orient('bottom');
+		var labels = true; 
 
-		// set scale for Y
-		var yValue = function(d){ return d.HR; },
-			yScale = d3.scale.linear().range([height, 0]),
-			yMap = function(d){ return yScale(yValue(d))},
-			yAxis = d3.svg.axis().scale(yScale).orient('left');
+		var margin = {top: 30, right: 50, bottom: 90, left: 75};
+		var  width = 650 - margin.left - margin.right;
+		var height = 400 - margin.top - margin.bottom;
+			
+		var min = Infinity,
+		    max = -Infinity;
+
+		var color = '#5188BF';
+
+		var data = [];
+		data[0] = [];
+		data[1] = [];
+		data[2] = [];
+
+		data[0][0] = "Left Handed";
+		data[1][0] = "Right Handed";
+		data[2][0] = "Both";
+
+		data[0][1] = [];
+		data[1][1] = [];
+		data[2][1] = [];
 
 
 		// get the data
-		d3.csv('baseball_data.csv', function(error, data) {
-			// set strings to integers 
-			data = data.filter(function(d) {
-				// exclude those players whose avg or HR is 0!
-				if(parseFloat(d.avg) == 0 || parseInt(d.HR) == 0) {
-					return false;
+		d3.csv('baseball_data.csv', function(error, csv) {
+
+			csv.forEach(function(player){
+				var avg = parseFloat(player.avg).toFixed(3);
+				if(avg > 0) {
+					switch(player.handedness) {
+						case 'L':
+							data[0][1].push(avg);
+							break;
+						case 'R':
+							data[1][1].push(avg);
+							break;
+						default:
+							data[2][1].push(avg);
+					}
+					if(avg > max) max = avg;
+					if(avg < min) min = avg;
 				}
-				d.HR = +d.HR;
-				d.avg = parseFloat(d.avg) * 1000;
-				return true;
 			});
 
-			// set domain of x and  y
-			xScale.domain([d3.min(data, xValue), d3.max(data, xValue) + 2]);
-			yScale.domain([1, d3.max(data, yValue)]);
+			var chart = d3.box()
+				.whiskers(iqr(1.5))
+				.height(height)	
+				.domain([min, max])
+				.showLabels(labels);
 
-			// append x-axis
+
+			var svg = d3.select("body").append("svg")
+				.attr("width", width + margin.left + margin.right)
+				.attr("height", height + margin.top + margin.bottom)
+				.attr("class", "box")    
+				.append("g")
+				.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+			
+			// the x-axis
+			var x = d3.scale.ordinal()	   
+				.domain( data.map(function(d) { console.log(d); return d[0] } ) )	    
+				.rangeRoundBands([0 , width], 0.7, 0.3); 		
+
+			var xAxis = d3.svg.axis()
+				.scale(x)
+				.orient("bottom");
+
+			// the y-axis
+			var y = d3.scale.linear()
+				.domain([min, max])
+				.range([height + margin.top, 0 + margin.top]);
+			
+			var yAxis = d3.svg.axis()
+		    .scale(y)
+		    .orient("left");
+
+			// draw the boxplots	
+			svg.selectAll(".box")	   
+		      .data(data)
+			  .enter().append("g")
+				.attr("transform", function(d) { return "translate(" +  x(d[0])  + "," + margin.top + ")"; } )
+		      .call(chart.width(x.rangeBand())); 
+			
+			      
+			// add a title
+			svg.append("text")
+		        .attr("x", (width / 2))             
+		        .attr("y", 0 + (margin.top / 2))
+		        .attr("text-anchor", "middle")  
+		        .style("font-size", "18px") 
+		        .text("Left versus Right Handed Batters");
+		 
+			 // draw y axis
 			svg.append("g")
-			  .attr("class", "x axis")
-			  .attr("transform", "translate(0," + height + ")")
-			  .call(xAxis)
-			.append("text")
-			  .attr("class", "label")
-			  .attr("x", width)
-			  .attr("y", -6)
-			  .style("text-anchor", "end")
-			  .text("Average");
-
-			// append y-axis
+		        .attr("class", "y axis")
+		        .call(yAxis)
+				.append("text") // and text1
+				  .attr("transform", "rotate(-90)")
+				  .attr("y", -(60))
+				  .attr('x', -(height/2))
+				  .attr("dy", ".71em")
+				  .style("text-anchor", "end")
+				  .style("font-size", "16px") 
+				  .text("Batting Average");		
+			
+			// draw x axis	
 			svg.append("g")
-			  .attr("class", "y axis")
-			  .call(yAxis)
-			.append("text")
-			  .attr("class", "label")
-			  .attr("transform", "rotate(-90)")
-			  .attr("y", 6)
-			  .attr("dy", ".71em")
-			  .style("text-anchor", "end")
-			  .text("Home Runs");
-
-			// append title
-			svg.append('text')
-				.attr('x', (width/2))
-				.attr('y', -20)
-				.attr('text-anchor', 'middle')
-				.style('font-size', '16px')
-				.text('Left Handed versus Right Handed Batters in the MLB')
-
-
-		    // find average HRs for each type of handedness
-			var battingAvgByHandedness = d3.nest()
-				.key(function(d) { return d.handedness; })
-				.rollup(function(v){ return d3.mean(v, function(d){ return d.avg }); })
-				.entries(data);
-
-
-  			// find average HRs for each type of handedness
-  			var homerunAvgByHandedness = d3.nest()
-				.key(function(d) { return d.handedness; })
-				.rollup(function(v){ return d3.mean(v, function(d){ return d.HR }); })
-				.entries(data)
-
-
-			// append legend
-			var legend = svg.selectAll(".legend")
-			  .data(["Right Handed", 'Left Handed', 'Both'])
-			.enter().append("g")
-			  .attr("class", "legend")
-			  .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
-
-			// append legend colored rectangles
-			legend.append("rect")
-			  .attr("x", width - 18)
-			  .attr("width", 18)
-			  .attr("height", 18)
-			  .style('cursor', 'pointer')
-			  .style("fill", function(d) {
-			  	switch(d) {
-			  		case 'Right Handed':
-			  			return rightHandedColor;
-			  			break;
-			  		case 'Left Handed':
-			  			return leftHandedColor;
-			  			break;
-			  		default: 
-			  			return bothHandedColor;
-			  	}
-			  })
-			  .on('click', function(d) {
-			  	switch(d) {
-			  		case 'Right Handed':
-			  			show('.right-handed');
-			  			break;
-			  		case 'Left Handed':
-			  			show('.left-handed');
-			  			break;
-			  		default: 
-			  			show('.both-handed');
-			  	}
-			  })
-
-			function show(type) {
-				hideAll();
-				d3.selectAll(type).style('display', 'block');
-			}
-
-			function hideAll() {
-				d3.selectAll('.left-handed').style('display', 'none');
-				d3.selectAll('.right-handed').style('display', 'none');
-				d3.selectAll('.both-handed').style('display', 'none');
-			}
-
-			// append legend text
-			legend.append("text")
-			  .attr("x", width - 24)
-			  .attr("y", 9)
-			  .attr("dy", ".35em")
-			  .style("text-anchor", "end")
-			  .text(function(d) { return d;})
+		      .attr("class", "x axis")
+		      .attr("transform", "translate(0," + (height  + margin.top + 10) + ")")
+		      .call(xAxis)
+			  .append("text")             // text label for the x axis
+		        .attr("x", (width / 2) )
+		        .attr("y",  30 )
+				.attr("dy", ".71em")
+		        .style("text-anchor", "middle")
+				.style("font-size", "16px") 
+				.text("Handedness");	
 
 		});
 	</script>
