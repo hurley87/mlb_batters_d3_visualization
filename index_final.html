@@ -95,7 +95,6 @@
 			data[2][1] = [];
 			// get the data
 			d3.csv('baseball_data.csv', function(error, csv) {
-				console.log(csv)
 
 				csv.forEach(function(player){
 					
@@ -120,6 +119,7 @@
 					}
 				});
 
+				// add box using box.js file
 				var chart = d3.box()
 					.whiskers(iqr(1.5))
 					.height(height)	
@@ -136,7 +136,7 @@
 				
 				// the x-axis
 				var x = d3.scale.ordinal()	   
-					.domain( data.map(function(d) { console.log(d); return d[0] } ) )	    
+					.domain( data.map(function(d) { return d[0] } ) )	    
 					.rangeRoundBands([0 , width], 0.7, 0.3); 		
 
 				var xAxis = d3.svg.axis()
@@ -194,17 +194,8 @@
 					.style("font-size", "16px") 
 					.text("Handedness");	
 
-				svg.append("rect")                 // button background
-				    .attr("id","buttonBackground")
-				    .attr("width", "40px")
-				    .attr("height", "20px")
-				    .style("fill", color)
-				    .attr("x", width)
-				    .attr("y", 20)
-				    .attr("ry", '2px')
-				    .text('hey')
-
-				var AvgRect = svg.append("rect")                 // button background
+				// add buttont to the graph that switches what type we are looking at
+				var AvgRect = svg.append("rect")           
 				    .attr("id","buttonBackground")
 				    .attr("width", "40px")
 				    .attr("height", "20px")
@@ -217,7 +208,7 @@
 				    	switchType();
 				    })
 
-				var text = svg.append("text")      // button text
+				var text = svg.append("text")
 				    .attr("id","buttonText")
 				    .attr("x", width + 20)
 				    .attr("y", 34)
@@ -231,6 +222,7 @@
 				    	switchType();
 				    })	
 
+				// switch type (HRs or AVG) depending on current type
 				function switchType() {
 				    if(analysis.type == 'avg') {
 				    	d3.select("svg").remove();
